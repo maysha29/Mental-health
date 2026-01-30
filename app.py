@@ -1,0 +1,277 @@
+import gradio as gr
+import numpy as np
+import pandas as pd
+from PIL import Image, ImageDraw, ImageFont
+import random
+import os
+import pickle
+
+# ---------------------------------------------------------
+# Block 1: Load Resources (Models & Assets)
+# ---------------------------------------------------------
+print("🚀 Loading Models and Assets...")
+
+
+try:
+    with open("mental_health_models.pkl", "rb") as f:
+        tuned_models = pickle.load(f)
+    print("Model loaded successfully!")
+except Exception as e:
+    print(f"❌ Error loading model: {e}")
+    tuned_models = {}  
+
+
+dep_cols = ['Q3A', 'Q5A', 'Q10A', 'Q13A', 'Q16A', 'Q17A', 'Q21A', 'Q24A', 'Q26A', 'Q31A', 'Q34A', 'Q37A', 'Q38A', 'Q42A']
+anx_cols = ['Q2A', 'Q4A', 'Q7A', 'Q9A', 'Q15A', 'Q19A', 'Q20A', 'Q23A', 'Q25A', 'Q28A', 'Q30A', 'Q36A', 'Q40A', 'Q41A']
+str_cols = ['Q1A', 'Q6A', 'Q8A', 'Q11A', 'Q12A', 'Q14A', 'Q18A', 'Q22A', 'Q27A', 'Q29A', 'Q32A', 'Q33A', 'Q35A', 'Q39A']
+
+
+def generate_premium_report(name, age, gender, depression, anxiety, stress):
+   
+    width, height = 1200, 1400
+    bg_color = (255, 255, 255)
+    img = Image.new('RGBA', (width, height), color=bg_color)
+    draw = ImageDraw.Draw(img)
+
+    
+    try:
+        font_b = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
+        font_r = "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
+        
+        f_header = ImageFont.truetype(font_b, 60)
+        f_sub = ImageFont.truetype(font_r, 30)
+        f_label = ImageFont.truetype(font_b, 26)
+        f_val = ImageFont.truetype(font_r, 26)
+        f_stamp = ImageFont.truetype(font_b, 55)
+        f_footer = ImageFont.truetype(font_r, 22)
+    except:
+        
+        f_header = ImageFont.load_default()
+        f_sub = ImageFont.load_default()
+        f_label = ImageFont.load_default()
+        f_val = ImageFont.load_default()
+        f_stamp = ImageFont.load_default()
+        f_footer = ImageFont.load_default()
+
+    draw.rectangle([(0, 0), (width, 180)], fill="#102a43") # Deep Navy
+
+    draw.ellipse([(60, 40), (140, 120)], fill="white")
+    draw.line([(90, 50), (110, 110)], fill="#102a43", width=5)
+    draw.line([(110, 50), (90, 110)], fill="#102a43", width=5)
+
+ 
+    draw.text((180, 50), "MENTAL HEALTH DIAGNOSTIC CENTER", font=f_header, fill="white")
+    draw.text((180, 120), "AI-Powered Advanced Clinical Assessment Report", font=f_sub, fill="#bcccdc")
+
+    
+    date_str = pd.Timestamp.now().strftime('%d %B, %Y')
+    draw.text((width-300, 130), f"Date: {date_str}", font=f_val, fill="#bcccdc")
+
+    draw.rectangle([(50, 220), (width-50, 350)], fill="#f0f4f8", outline="#d9e2ec", width=2)
+
+    draw.text((80, 240), "PATIENT NAME", font=f_label, fill="#486581")
+    draw.text((80, 280), str(name).upper(), font=f_header, fill="#102a43")
+
+    draw.text((600, 240), "AGE / GENDER", font=f_label, fill="#486581")
+    draw.text((600, 285), f"{int(age)} Years  |  {gender}", font=f_val, fill="#102a43")
+
+    draw.text((900, 240), "PATIENT ID", font=f_label, fill="#486581")
+    draw.text((900, 285), f"PID-{random.randint(1000,9999)}", font=f_val, fill="#102a43")
+
+    y_start = 420
+    draw.text((50, 390), "CLINICAL EVALUATION", font=f_label, fill="#102a43")
+    draw.line([(50, 415), (width-50, 415)], fill="#102a43", width=3)
+
+ 
+    draw.rectangle([(50, y_start), (width-50, y_start+60)], fill="#334e68")
+    draw.text((80, y_start+15), "PARAMETER", font=f_label, fill="white")
+    draw.text((500, y_start+15), "SEVERITY LEVEL", font=f_label, fill="white")
+    draw.text((900, y_start+15), "STATUS", font=f_label, fill="white")
+
+    results = [("DEPRESSION", depression), ("ANXIETY", anxiety), ("STRESS", stress)]
+    row_y = y_start + 60
+
+    for i, (disorder, result) in enumerate(results):
+        bg = "white" if i % 2 == 0 else "#f0f4f8"
+        draw.rectangle([(50, row_y), (width-50, row_y+120)], fill=bg)
+
+        if result in ['Normal', 'Mild']:
+            color = "#27ae60" 
+            status = "Low Risk"
+            fill_pct = 0.25
+        elif result == 'Moderate':
+            color = "#d35400" 
+            status = "Monitoring Req."
+            fill_pct = 0.55
+        else:
+            color = "#c0392b" 
+            status = "High Risk"
+            fill_pct = 0.90
+
+        draw.text((80, row_y+40), disorder, font=f_label, fill="#333333")
+        draw.text((500, row_y+40), str(result).upper(), font=f_label, fill=color)
+        draw.text((900, row_y+40), status, font=f_val, fill="#333333")
+
+        bar_x = 500
+        bar_y = row_y + 80
+        draw.rectangle([(bar_x, bar_y), (bar_x+300, bar_y+10)], fill="#e1e1e1")
+        draw.rectangle([(bar_x, bar_y), (bar_x+(300*fill_pct), bar_y+10)], fill=color)
+
+        row_y += 120
+
+  
+    stamp_size = 240
+    stamp_img = Image.new('RGBA', (stamp_size, stamp_size), (0,0,0,0))
+
+    try:
+        if os.path.exists("verified.png"):
+            icon = Image.open("verified.png").convert("RGBA")
+            icon = icon.resize((210, 210))
+            stamp_img.paste(icon, (15, 15), icon)
+        else:
+            raise Exception("File not found")
+    except:
+        ds = ImageDraw.Draw(stamp_img)
+        ds.ellipse([(10, 10), (230, 230)], outline="blue", width=5)
+        ds.text((50, 100), "VERIFIED", font=f_label, fill="blue")
+
+    rot_stamp = stamp_img.rotate(15, expand=True)
+    center_x = (width - rot_stamp.width) // 2
+    pos_y = height - 360
+    img.paste(rot_stamp, (center_x, pos_y), rot_stamp)
+
+   
+    try:
+        if os.path.exists("signature.png"):
+            sig_img = Image.open("signature.png").convert("RGBA")
+
+            sig_width = 250
+            w_percent = (sig_width / float(sig_img.size[0]))
+            h_size = int((float(sig_img.size[1]) * float(w_percent)))
+            sig_img = sig_img.resize((sig_width, h_size))
+
+            img.paste(sig_img, (860, 1020), sig_img)
+        else:
+            draw.text((880, 1100), "Signed", font=f_val, fill="#333333")
+
+    except Exception as e:
+        print(f"Sig Error: {e}")
+        draw.text((880, 1100), "Signed", font=f_val, fill="#333333")
+
+   
+    draw.line([(850, 1150), (1100, 1150)], fill="#333333", width=2)
+    draw.text((880, 1160), "Authorized Signature", font=f_val, fill="#333333")
+
+    draw.rectangle([(0, height-80), (width, height)], fill="#102a43")
+    draw.text((80, height-50), "Note: Generated by ML Model. This is a computer-generated report.", font=f_footer, fill="white")
+
+    return img
+
+
+def smart_assessment_final(name, age, gender, *args):
+    try:
+        d_scaled = [int(round(x)) for x in args[0:8]]
+        a_scaled = [int(round(x)) for x in args[8:16]]
+        s_scaled = [int(round(x)) for x in args[16:22]]
+
+        avg_dep, avg_anx, avg_str = np.mean(d_scaled), np.mean(a_scaled), np.mean(s_scaled)
+
+        if not tuned_models:
+            return None
+
+        sample_key = 'Depression'
+        X_test_base = tuned_models[sample_key]['X_test']
+        
+        if isinstance(X_test_base, pd.DataFrame):
+            base_row = X_test_base.iloc[0].copy()
+        else:
+            return None
+
+        
+        for col in base_row.index:
+            base_row[col] = 0
+
+        
+        if 'age' in base_row.index: base_row['age'] = age
+        
+        for col in dep_cols:
+            if col in base_row.index: base_row[col] = int(round(avg_dep))
+        for col in anx_cols:
+            if col in base_row.index: base_row[col] = int(round(avg_anx))
+        for col in str_cols:
+            if col in base_row.index: base_row[col] = int(round(avg_str))
+
+        input_data = base_row.values.reshape(1, -1)
+        preds = {}
+
+        for disorder in ['Depression', 'Anxiety', 'Stress']:
+            model = tuned_models[disorder]['model']
+            le = tuned_models[disorder]['le']
+            pred_num = model.predict(input_data)[0]
+
+            if hasattr(le, 'inverse_transform'):
+                pred_class = le.inverse_transform([pred_num])[0]
+            else:
+                classes = ['Extremely Severe', 'Mild', 'Moderate', 'Normal', 'Severe']
+               
+                if pred_num < len(classes):
+                    pred_class = classes[int(pred_num)]
+                else:
+                    pred_class = str(pred_num)
+            
+            preds[disorder] = pred_class
+
+        return generate_premium_report(name, age, gender, preds['Depression'], preds['Anxiety'], preds['Stress'])
+
+    except Exception as e:
+        print(f"Prediction Error: {e}")
+        return None
+
+
+theme = gr.themes.Soft(primary_hue="sky", secondary_hue="slate", font=["Roboto", "sans-serif"])
+
+with gr.Blocks(theme=theme, title="AI Mental Health System") as demo:
+    gr.Markdown("# Professional Mental Health Assessment System")
+    gr.Markdown("Complete the assessment below to generate a **Certified Clinical Report**. (Scale: 0-7)")
+
+    with gr.Row():
+        with gr.Column(scale=4, variant="panel"):
+            gr.Markdown("### 1. Patient Registration")
+            i_name = gr.Textbox(label="Full Name", placeholder="e.g. Md. Nazmus Sakib")
+            with gr.Row():
+                i_age = gr.Number(label="Age", value=25, precision=0)
+                i_gender = gr.Dropdown(["Male", "Female", "Other"], label="Gender", value="Male")
+
+            gr.Markdown("---")
+            gr.Markdown("### 2. Clinical Assessment (22 Questions)")
+
+            inputs_list = []
+
+            with gr.Accordion("Depression Scale", open=True):
+                inputs_list.extend([gr.Slider(0, 7, step=1, label=l) for l in [
+                    "Q1: No positive feeling", "Q2: Felt down-hearted", "Q3: Life meaningless", "Q4: No initiative",
+                    "Q5: Felt worthless", "Q6: Nothing to look forward", "Q7: Felt sad/depressed", "Q8: No enthusiasm"]])
+
+            with gr.Accordion("Anxiety Scale", open=False):
+                inputs_list.extend([gr.Slider(0, 7, step=1, label=l) for l in [
+                    "Q1: Dry mouth", "Q2: Breathing difficulty", "Q3: Trembling hands", "Q4: Panic worry",
+                    "Q5: Heart racing", "Q6: Scared w/o reason", "Q7: Fear of tasks", "Q8: Choking feeling"]])
+
+            with gr.Accordion("Stress Scale", open=False):
+                inputs_list.extend([gr.Slider(0, 7, step=1, label=l) for l in [
+                    "Q1: Hard to wind down", "Q2: Over-reactive", "Q3: Touchy/Sensitive",
+                    "Q4: Intolerant of waiting", "Q5: Nervous energy", "Q6: Agitated"]])
+
+            btn = gr.Button("Generate Verified Report", variant="primary", size="lg")
+
+        with gr.Column(scale=5):
+            gr.Markdown("### Final Diagnostic Report")
+            gr.Markdown("Your report is ready for download below.")
+
+            out_img = gr.Image(label="Clinical Report", type="pil", show_download_button=True, elem_id="report_out")
+
+    all_inputs = [i_name, i_age, i_gender] + inputs_list
+    btn.click(fn=smart_assessment_final, inputs=all_inputs, outputs=out_img)
+
+if __name__ == "__main__":
+    demo.launch()
